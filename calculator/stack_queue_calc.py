@@ -17,7 +17,7 @@ class StackQueueCalculator(CalculatorBase):
                 is_unary = False
                 if i == 0: 
                     is_unary = True
-                elif i > 0 and arr and arr[-1] in ['(', '+', '-', '*', '/']:
+                elif i > 0 and arr and arr[-1] in ['(', '+', '-', '*', '/','%']:
                     is_unary = True
                 
                 if is_unary and not num_str:
@@ -45,14 +45,12 @@ class StackQueueCalculator(CalculatorBase):
             result.append(token)
             if i + 1 < len(tokens):
                 next_token = tokens[i + 1]
-                if (isinstance(token, int) and next_token == '(') or \
-                   (token == ')' and next_token == '(') or \
-                   (token == ')' and isinstance(next_token, int)):
+                if (isinstance(token, int) and next_token == '(') or (token == ')' and next_token == '(') or (token == ')' and isinstance(next_token, int)):
                     result.append('*')
         return result
 
     def token_to_postfix(self, token: list) -> list:
-        precedence = {'+':1,'-':1,'*':2,'/':2,'(':0}
+        precedence = {'+':1,'-':1,'*':2,'/':2,'%':2,'(':0}
         stack = []
         queue = deque()
         for t in token:
@@ -79,9 +77,13 @@ class StackQueueCalculator(CalculatorBase):
         if op == '-': return num1 - num2
         if op == '*': return num1 * num2
         if op == '/':
-            if num2 == 0:
-                raise ZeroDivisionError("Cannot divide by zero")
-            return num1 / num2
+          if num2 == 0:
+            raise ZeroDivisionError("Cannot divide by zero")
+          return num1 / num2
+        if op == '%':
+          if num2 == 0:
+            raise ZeroDivisionError("Cannot modulo by zero")
+          return num1%num2
         raise ValueError(f"Unknown operator: {op}")
 
     def evaluation(self, postfix: list) -> float:
@@ -89,7 +91,7 @@ class StackQueueCalculator(CalculatorBase):
         for p in postfix:
             if isinstance(p, (int, float)):
                 stack.append(p)
-            elif p in "+-*/":
+            elif p in "+-*/%":
                 num2 = stack.pop()
                 num1 = stack.pop()
                 stack.append(self.calc(num1, num2, p))
