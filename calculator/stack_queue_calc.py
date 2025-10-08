@@ -21,6 +21,14 @@ class StackQueueCalculator(CalculatorBase):
                 i += 1
                 continue
 
+            
+            # Inside your tokenize() method, add before checking other operators
+            if query[i:i+6] == 'recip(':
+              arr.append('recip')  # Unary operator
+              arr.append('(')      # Keep the '(' for the expression inside
+              i += 6               # Move index past 'recip('
+              continue
+
             # Flush pending number before processing operator
             if num_str:
                 try:
@@ -107,9 +115,9 @@ class StackQueueCalculator(CalculatorBase):
         """Convert infix notation to postfix (RPN) using Shunting Yard algorithm."""
         if not tokens:
             raise ValueError("No tokens to convert")
-        
-        precedence = {'+': 1, '-': 1, '*': 2, '/': 2, '%': 2, '^': 3, '~': 4}  # ~ is unary minus
-        right_assoc = {'^', '~'}  # Right-associative operators
+       
+        precedence = {'+': 1, '-': 1, '*': 2, '/': 2, '%': 2, '^': 3, '~': 4, 'recip': 4}  
+        right_assoc = {'^', '~', 'recip'}
         stack = []
         queue = deque()
 
@@ -125,6 +133,8 @@ class StackQueueCalculator(CalculatorBase):
                 if not stack:
                     raise ValueError("Mismatched parentheses: extra ')'")
                 stack.pop()  # Remove the '('
+                if stack and stack[-1] in ('~', 'recip'):
+                  queue.append(stack.pop())
             elif t == '~' or t in precedence:
                 # Pop operators with higher or equal precedence (considering associativity)
                 while stack and stack[-1] != '(' and stack[-1] in precedence:
@@ -186,6 +196,14 @@ class StackQueueCalculator(CalculatorBase):
                 num2 = stack.pop()
                 num1 = stack.pop()
                 stack.append(self.calc(num1, num2, p))
+ 
+            elif p == 'recip':
+                if len(stack) < 1:
+                    raise ValueError("Insufficient operands for reciprocal")
+                val = stack.pop()
+                if val == 0:
+                    raise ZeroDivisionError("Cannot take reciprocal of zero")
+                stack.append(1 / val)
             else:
                 raise ValueError(f"Invalid token in postfix: {p}")
         
@@ -195,8 +213,9 @@ class StackQueueCalculator(CalculatorBase):
         return stack[0]
 
     def evaluate(self, query: str) -> float:
-        """Main method to evaluate mathematical expression."""
+        """Main method to evaluate mathemaatical expression."""
         tokens = self.tokenize(query)
         tokens = self.add_implicit_multiplication(tokens)
         postfix = self.token_to_postfix(tokens)
         return self.evaluation(postfix)
+
