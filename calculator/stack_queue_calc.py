@@ -1,221 +1,244 @@
-from collections import deque
-from .base import CalculatorBase
+import math
+import random
+from typing import Callable, Dict, List, Union
+from calculator.base import CalculatorBase
+from calculator.enum.angle import AngleUnit
+from calculator.funtions.hyperbolic_functions import HyperbolicFunctions
+from calculator.funtions.math_functions import MathFunctions
+from calculator.funtions.trigo_function import TrigFunctions
+from calculator.util.postfix_converter import PostfixConverter
+from calculator.util.postfix_eval import PostfixEvaluator
+from calculator.util.tokenizer import Tokenizer
+
 
 class StackQueueCalculator(CalculatorBase):
-    def tokenize(self, query: str) -> list:
-        """Tokenize the input expression into numbers and operators."""
-        if not query or not query.strip():
-            raise ValueError("Empty expression")
+    """
+    Modular scientific calculator with comprehensive mathematical operations.
+    
+    Features:
+    - Basic arithmetic (+, -, *, /, %, ^)
+    - Trigonometric functions with multiple angle units (degrees, radians, gradians, turns)
+    - Hyperbolic functions
+    - Logarithmic and exponential functions
+    - Statistical operations
+    - Mathematical constants
+    - Memory operations
+    - Implicit multiplication
+    """
+    
+    def __init__(self, angle_unit: AngleUnit = AngleUnit.RADIANS):
+        super().__init__()
+        self.angle_unit = angle_unit
+        self._last_answer = 0.0
+        self._memory = 0.0
         
-        query = query.replace(' ', '')  # Remove whitespace
-        arr = []
-        num_str = ""
-        i = 0
+        # Initialize modular components
+        self.math_funcs = MathFunctions()
+        self.trig_funcs = TrigFunctions(angle_unit)
+        self.hyp_funcs = HyperbolicFunctions()
         
-        while i < len(query):
-            ch = query[i]
-
-            # Build number (including decimals)
-            if ch.isdigit() or ch == '.':
-                num_str += ch
-                i += 1
-                continue
-
+        self._initialize_functions()
+        self._initialize_constants()
+        
+        # Initialize processing components
+        self.tokenizer = Tokenizer(self.functions, self.binary_functions, self.constants)
+        self.postfix_converter = PostfixConverter(
+            set(self.functions.keys()), 
+            set(self.binary_functions.keys())
+        )
+        self.evaluator = PostfixEvaluator(self.functions, self.binary_functions)
+    
+    def set_angle_unit(self, unit: AngleUnit) -> None:
+        """Change the angle unit for trigonometric functions."""
+        self.angle_unit = unit
+        self.trig_funcs = TrigFunctions(unit)
+        self._initialize_functions()  # Rebuild function registry
+    
+    def _initialize_functions(self) -> None:
+        """Initialize all supported unary functions."""
+        self.functions: Dict[str, Callable[[float], float]] = {
+            # Basic operations
+            'recip': self.math_funcs.safe_reciprocal,
+            'sqrt': self.math_funcs.safe_sqrt,
+            'cbrt': self.math_funcs.cbrt,
             
-            # Inside your tokenize() method, add before checking other operators
-            if query[i:i+6] == 'recip(':
-              arr.append('recip')  # Unary operator
-              arr.append('(')      # Keep the '(' for the expression inside
-              i += 6               # Move index past 'recip('
-              continue
-
-            # Flush pending number before processing operator
-            if num_str:
-                try:
-                    arr.append(float(num_str))
-                except ValueError:
-                    raise ValueError(f"Invalid number format: {num_str}")
-                num_str = ""
-
-            # Handle unary minus (negative numbers)
-            if ch == '-':
-                # Check if this is a unary minus
-                is_unary = (
-                    i == 0 or  # Start of expression
-                    (arr and arr[-1] in ['(', '+', '-', '*', '/', '%', '^'])  # After operator
-                )
-                
-                if is_unary:
-                    # Look ahead to get the number or sub-expression
-                    i += 1
-                    # Skip whitespace if any
-                    while i < len(query) and query[i] == ' ':
-                        i += 1
-                    
-                    if i >= len(query):
-                        raise ValueError("Expression ends with operator")
-                    
-                    # If next is '(', we need to handle it specially
-                    if query[i] == '(':
-                        arr.append('~')  # Unary minus marker
-                        continue
-                    
-                    # Otherwise, collect the negative number
-                    neg_num = ""
-                    while i < len(query) and (query[i].isdigit() or query[i] == '.'):
-                        neg_num += query[i]
-                        i += 1
-                    
-                    if neg_num:
-                        try:
-                            arr.append(-float(neg_num))
-                        except ValueError:
-                            raise ValueError(f"Invalid number format: -{neg_num}")
-                    else:
-                        raise ValueError("Invalid expression: operator followed by operator")
-                    continue
-                else:
-                    # Binary minus
-                    arr.append('-')
-                    i += 1
-                    continue
-
-            # Handle other operators and parentheses
-            if ch in '+*/%^()':
-                arr.append(ch)
-                i += 1
-            else:
-                raise ValueError(f"Invalid character: {ch}")
-
-        # Flush final number
-        if num_str:
-            try:
-                arr.append(float(num_str))
-            except ValueError:
-                raise ValueError(f"Invalid number format: {num_str}")
-
-        return arr
-
-    def add_implicit_multiplication(self, tokens: list) -> list:
-        """Add implicit multiplication operators (e.g., 2(3) -> 2*3)."""
+            # Exponential and logarithmic
+            'exp': math.exp,
+            'exp10': lambda x: 10 ** x,
+            'ln': self.math_funcs.safe_ln,
+            'log': self.math_funcs.safe_log10,
+            'log2': self.math_funcs.safe_log2,
+            
+            # Trigonometric
+            'sin': self.trig_funcs.sin,
+            'cos': self.trig_funcs.cos,
+            'tan': self.trig_funcs.tan,
+            'csc': self.trig_funcs.csc,
+            'sec': self.trig_funcs.sec,
+            'cot': self.trig_funcs.cot,
+            
+            # Inverse trigonometric
+            'asin': self.trig_funcs.asin,
+            'acos': self.trig_funcs.acos,
+            'atan': self.trig_funcs.atan,
+            'acsc': self.trig_funcs.acsc,
+            'asec': self.trig_funcs.asec,
+            'acot': self.trig_funcs.acot,
+            
+            # Hyperbolic
+            'sinh': math.sinh,
+            'cosh': math.cosh,
+            'tanh': math.tanh,
+            'csch': self.hyp_funcs.csch,
+            'sech': self.hyp_funcs.sech,
+            'coth': self.hyp_funcs.coth,
+            
+            # Inverse hyperbolic
+            'asinh': math.asinh,
+            'acosh': self.hyp_funcs.acosh,
+            'atanh': self.hyp_funcs.atanh,
+            'acsch': self.hyp_funcs.acsch,
+            'asech': self.hyp_funcs.asech,
+            'acoth': self.hyp_funcs.acoth,
+            
+            # Utility functions
+            'abs': abs,
+            'floor': math.floor,
+            'ceil': math.ceil,
+            'round': round,
+            'trunc': math.trunc,
+            'sign': self.math_funcs.sign,
+            
+            # Statistical
+            'fact': self.math_funcs.safe_factorial,
+            
+            # Random
+            'rand': lambda x: random.random(),
+        }
+        
+        # Binary functions
+        self.binary_functions: Dict[str, Callable[[float, float], float]] = {
+            'nPr': self.math_funcs.safe_permutation,
+            'nCr': self.math_funcs.safe_combination,
+            'logb': self.math_funcs.safe_log_base,
+            'nrt': self.math_funcs.safe_nth_root,
+            'pow': lambda x, y: x ** y,
+            'atan2': self.trig_funcs.atan2,
+            'hypot': math.hypot,
+            'gcd': self.math_funcs.safe_gcd,
+            'lcm': self.math_funcs.safe_lcm,
+            'max': max,
+            'min': min,
+        }
+    
+    def _initialize_constants(self) -> None:
+        """Initialize mathematical constants."""
+        self.constants: Dict[str, Union[float, Callable]] = {
+            'π': math.pi,
+            'pi': math.pi,
+            'e': math.e,
+            'tau': math.tau,
+            'phi': (1 + math.sqrt(5)) / 2,
+            'ans': lambda: self._last_answer,
+        }
+    
+    # ==================== Memory Operations ====================
+    
+    def memory_add(self, value: float) -> None:
+        """Add value to memory (M+)."""
+        self._memory += value
+    
+    def memory_subtract(self, value: float) -> None:
+        """Subtract value from memory (M-)."""
+        self._memory -= value
+    
+    def memory_recall(self) -> float:
+        """Recall memory value (MR)."""
+        return self._memory
+    
+    def memory_clear(self) -> None:
+        """Clear memory (MC)."""
+        self._memory = 0.0
+    
+    def get_last_answer(self) -> float:
+        """Get the last calculated answer."""
+        return self._last_answer
+    
+    # ==================== Implicit Multiplication ====================
+    
+    def add_implicit_multiplication(self, tokens: List) -> List:
+        """Add implicit multiplication operators."""
         result = []
+        all_funcs = set(self.functions.keys()) | set(self.binary_functions.keys())
+        
         for i, token in enumerate(tokens):
             result.append(token)
             if i + 1 < len(tokens):
                 next_token = tokens[i + 1]
-                # Add * between: number and (, ) and (, ) and number
-                if (isinstance(token, (int, float)) and next_token == '(') or \
-                   (token == ')' and next_token == '(') or \
-                   (token == ')' and isinstance(next_token, (int, float))) or \
-                   (isinstance(token, (int, float)) and next_token == '~'):
+                if self._should_add_multiplication(token, next_token, all_funcs):
                     result.append('*')
+        
         return result
-
-    def token_to_postfix(self, tokens: list) -> list:
-        """Convert infix notation to postfix (RPN) using Shunting Yard algorithm."""
-        if not tokens:
-            raise ValueError("No tokens to convert")
-       
-        precedence = {'+': 1, '-': 1, '*': 2, '/': 2, '%': 2, '^': 3, '~': 4, 'recip': 4}  
-        right_assoc = {'^', '~', 'recip'}
-        stack = []
-        queue = deque()
-
-        for t in tokens:
-            if isinstance(t, (int, float)):
-                queue.append(t)
-            elif t == '(':
-                stack.append(t)
-            elif t == ')':
-                # Pop until matching open parenthesis
-                while stack and stack[-1] != '(':
-                    queue.append(stack.pop())
-                if not stack:
-                    raise ValueError("Mismatched parentheses: extra ')'")
-                stack.pop()  # Remove the '('
-                if stack and stack[-1] in ('~', 'recip'):
-                  queue.append(stack.pop())
-            elif t == '~' or t in precedence:
-                # Pop operators with higher or equal precedence (considering associativity)
-                while stack and stack[-1] != '(' and stack[-1] in precedence:
-                    if (t not in right_assoc and precedence[stack[-1]] >= precedence[t]) or \
-                       (t in right_assoc and precedence[stack[-1]] > precedence[t]):
-                        queue.append(stack.pop())
-                    else:
-                        break
-                stack.append(t)
-            else:
-                raise ValueError(f"Invalid token: {t}")
-        
-        # Pop remaining operators
-        while stack:
-            if stack[-1] == '(':
-                raise ValueError("Mismatched parentheses: extra '('")
-            queue.append(stack.pop())
-        
-        return list(queue)
-
-    def calc(self, num1: float, num2: float, op: str) -> float:
-        """Perform binary operation."""
-        if op == '+':
-            return num1 + num2
-        elif op == '-':
-            return num1 - num2
-        elif op == '*':
-            return num1 * num2
-        elif op == '/':
-            if num2 == 0:
-                raise ZeroDivisionError("Cannot divide by zero")
-            return num1 / num2
-        elif op == '%':
-            if num2 == 0:
-                raise ZeroDivisionError("Cannot modulo by zero")
-            return num1 % num2
-        elif op == '^':
-            return num1 ** num2
-        else:
-            raise ValueError(f"Unknown operator: {op}")
-
-    def evaluation(self, postfix: list) -> float:
-        """Evaluate postfix expression."""
-        if not postfix:
-            raise ValueError("Empty postfix expression")
-        
-        stack = []
-        
-        for p in postfix:
-            if isinstance(p, (int, float)):
-                stack.append(p)
-            elif p == '~':  # Unary minus
-                if len(stack) < 1:
-                    raise ValueError("Insufficient operands for unary minus")
-                stack.append(-stack.pop())
-            elif p in "+-*/%^":
-                if len(stack) < 2:
-                    raise ValueError(f"Insufficient operands for operator '{p}'")
-                num2 = stack.pop()
-                num1 = stack.pop()
-                stack.append(self.calc(num1, num2, p))
- 
-            elif p == 'recip':
-                if len(stack) < 1:
-                    raise ValueError("Insufficient operands for reciprocal")
-                val = stack.pop()
-                if val == 0:
-                    raise ZeroDivisionError("Cannot take reciprocal of zero")
-                stack.append(1 / val)
-            else:
-                raise ValueError(f"Invalid token in postfix: {p}")
-        
-        if len(stack) != 1:
-            raise ValueError("Invalid expression: too many operands")
-        
-        return stack[0]
-
+    
+    def _should_add_multiplication(self, token, next_token, all_funcs: set) -> bool:
+        """Determine if implicit multiplication should be added."""
+        return (
+            (isinstance(token, (int, float)) and next_token == '(') or
+            (token == ')' and next_token == '(') or
+            (token == ')' and isinstance(next_token, (int, float))) or
+            (isinstance(token, (int, float)) and next_token == '~') or
+            (isinstance(token, (int, float)) and next_token in all_funcs) or
+            (isinstance(token, (int, float)) and next_token in self.constants.keys()) or
+            (token == ')' and next_token in all_funcs)
+        )
+    
+    # ==================== Main Evaluation ====================
+    
     def evaluate(self, query: str) -> float:
-        """Main method to evaluate mathemaatical expression."""
-        tokens = self.tokenize(query)
+        """
+        Main method to evaluate mathematical expression.
+        
+        Args:
+            query: Mathematical expression as string
+            
+        Returns:
+            Result of evaluation
+            
+        Examples:
+            >>> calc = StackQueueCalculator(AngleUnit.DEGREES)
+            >>> calc.evaluate("sin(30°)")  # 30 degrees
+            0.5
+            >>> calc.evaluate("2π")  # 2 * pi
+            6.283185307179586
+            >>> calc.evaluate("e^2")  # e squared
+            7.389056098930650
+            >>> calc.evaluate("90grad")  # 90 gradians = 81 degrees
+            1.5707963267948966  # in radians
+        """
+        tokens = self.tokenizer.tokenize(query)
         tokens = self.add_implicit_multiplication(tokens)
-        postfix = self.token_to_postfix(tokens)
-        return self.evaluation(postfix)
-
+        postfix = self.postfix_converter.convert(tokens)
+        result = self.evaluator.evaluate(postfix)
+        self._last_answer = result
+        return result
+    
+    def evaluate_with_steps(self, query: str) -> Dict[str, any]:
+        """
+        Evaluate expression and return intermediate steps for debugging.
+        
+        Returns:
+            Dictionary containing tokens, postfix, and result
+        """
+        tokens = self.tokenizer.tokenize(query)
+        tokens_with_mult = self.add_implicit_multiplication(tokens)
+        postfix = self.postfix_converter.convert(tokens_with_mult)
+        result = self.evaluator.evaluate(postfix)
+        self._last_answer = result
+        
+        return {
+            'original': query,
+            'tokens': tokens,
+            'tokens_with_implicit_mult': tokens_with_mult,
+            'postfix': postfix,
+            'result': result
+        }
