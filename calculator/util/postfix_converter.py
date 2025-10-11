@@ -12,7 +12,7 @@ class PostfixConverter:
         self.right_assoc = self._build_right_assoc()
     
     def _build_precedence(self) -> Dict[str, int]:
-        precedence = {'+': 1, '-': 1, '*': 2, '/': 2, '%': 2, '^': 3, '~': 5}
+        precedence = {'+': 1, '-': 1, '*': 2, '/': 2, '%': 2, '~': 2, '^': 3}
         for func in self.functions | self.binary_functions:
             precedence[func] = 4
         return precedence

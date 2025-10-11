@@ -7,4 +7,3 @@ if __name__ == "__main__":
     calc = StackQueueCalculator()
     results = run_tests(calc)
     print_results(results)
-
