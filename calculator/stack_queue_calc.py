@@ -63,12 +63,17 @@ class StackQueueCalculator(CalculatorBase):
             'cbrt': self.math_funcs.cbrt,
             
             # Exponential and logarithmic
+            'e': math.exp,  # e(x) = e^x
             'exp': math.exp,
             'exp10': lambda x: 10 ** x,
             'ln': self.math_funcs.safe_ln,
             'log': self.math_funcs.safe_log10,
             'log2': self.math_funcs.safe_log2,
-            
+
+            # Angle conversion functions
+            'rad': math.radians,  # Convert degrees to radians
+            'deg': math.degrees,  # Convert radians to degrees
+
             # Trigonometric
             'sin': self.trig_funcs.sin,
             'cos': self.trig_funcs.cos,
