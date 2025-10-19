@@ -41,14 +41,6 @@ def print_results(results: TestResult):
     print(Fore.CYAN + Style.BRIGHT + " TEST RESULTS ".center(60, "="))
     print("=" * 60)
 
-    # Summary
-    print(
-        f"{Fore.GREEN}✔ Passed: {results.passed}  "
-        f"{Fore.RED}✘ Failed: {results.failed}  "
-        f"{Fore.YELLOW}! Errors: {results.errors}"
-    )
-    print("-" * 60)
-
     # Detailed results
     for i, res in enumerate(results.results, 1):
         status_color = {
@@ -63,3 +55,9 @@ def print_results(results: TestResult):
         if res['error']:
             print(f"       {Fore.YELLOW}Error: {res['error']}{Style.RESET_ALL}")
         print("-" * 60)
+    print(
+        f"{Fore.GREEN}✔ Passed: {results.passed}  "
+        f"{Fore.RED}✘ Failed: {results.failed}  "
+        f"{Fore.YELLOW}! Errors: {results.errors}"
+    )
+    print("-" * 60)
