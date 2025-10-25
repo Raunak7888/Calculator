@@ -257,36 +257,32 @@ Your Math → [Tokenizer] → [Add Magic] → [Shunting Yard] → [Stack Go Brr]
 ### Architecture Highlights 🏛️
 
 ```python
-StackQueueCalculator
-├── Unary Functions (50+ functions)
-│   ├── Trigonometric (sin, cos, tan, csc, sec, cot)
-│   ├── Inverse Trig (asin, acos, atan, acsc, asec, acot)
-│   ├── Hyperbolic (sinh, cosh, tanh, csch, sech, coth)
-│   ├── Inverse Hyperbolic (asinh, acosh, atanh, acsch, asech, acoth)
-│   ├── Logarithmic (ln, log, log2, e, exp10)
-│   ├── Roots (sqrt, cbrt, recip)
-│   └── Utility (abs, floor, ceil, round, trunc, sign, fact, rand)
-│
-├── Binary Functions (10+ functions)
-│   ├── Statistical (nPr, nCr)
-│   ├── Logarithmic (logb)
-│   ├── Roots (nrt)
-│   ├── Geometry (atan2, hypot)
-│   └── Number Theory (gcd, lcm, pow)
-│
-├── Constants (5 constants)
-│   ├── π (pi), e, tau, phi, ans
-│
-├── Memory System
-│   ├── M+, M-, MR, MC
-│   └── Last Answer (ans)
-│
-└── Smart Features
-    ├── Domain Validation (no sqrt(-1))
-    ├── Overflow Protection (fact(171) warns you)
-    ├── Zero Division Handling
-    ├── Implicit Multiplication
-    └── Nested Function Support
+calculator
+    ├── enum
+    |    └── angle.py
+    ├── funtions
+    |    ├── hyperbolic_functions.py
+    |    ├── math_functions.py
+    |    └── trigo_function.py
+    ├── util
+    |    ├── angle_converter.py
+    |    ├── postfix_converter.py
+    |    ├── postfix_eval.py
+    |    └── tokenizer.py
+    ├── __init__.py
+    ├── angle_calculator.py
+    ├── base.py
+    └── stack_queue_calc.py
+test
+    ├── __init__.py
+    ├── calculator_tester.py
+    └── test_cases.py
+.gitignore
+.python-version
+calculator.py
+pyproject.toml
+README.md
+USAGE.md
 ```
 
 ---
@@ -312,6 +308,11 @@ Run the comprehensive test suite with 100+ test cases:
 
 ```bash
 uv run calculator.py
+```
+or
+```bash
+cd calc # make sure it is in the correct directory
+Python calculator.py
 ```
 
 Test categories:
